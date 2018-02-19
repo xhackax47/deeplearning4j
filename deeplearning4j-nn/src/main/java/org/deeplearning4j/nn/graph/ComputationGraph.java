@@ -3447,7 +3447,6 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
 
         int evalIter = 0;
         while (iter.hasNext()) {
-            log.info("Eval iter {}", evalIter);
             MultiDataSet next = iter.next();
 
             if (next.getFeatures() == null || next.getLabels() == null)
@@ -3465,12 +3464,15 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
                     INDArray[] labelMasks = next.getLabelsMaskArrays();
                     INDArray labelMask = next.getLabelsMaskArray(0);
 
+                    log.info("Eval iter {} - f={}, l={}, fm={}, lw={}", evalIter, Arrays.toString(features[0].shape()),
+                            Arrays.toString(labels.shape()), (featuresMasks == null || featuresMasks[0] == null ? "null" : Arrays.toString(featuresMasks[0].shape())),
+                            (labelMask == null ? "null" : Arrays.toString(labelMask.shape())));
+
                     setLayerMaskArrays(featuresMasks, labelMasks);
                     INDArray[] out = silentOutput(false, features);
 
                     try (MemoryWorkspace wsO = Nd4j.getWorkspaceManager().scopeOutOfWorkspaces()) {
                         for (T evaluation : evaluations) {
-                            log.info("Eval iter {} - {}", evalIter, evaluation.getClass().getSimpleName());
                             evaluation.eval(labels, out[0], labelMask);
                         }
                     }
