@@ -3438,7 +3438,16 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
 
         boolean useRnnSegments = (configuration.getBackpropType() == BackpropType.TruncatedBPTT);
 
+        log.info("??? Starting Evaluation ???");
+        for(Layer l : layers){
+            INDArray lIn = l.input();
+            log.info("{} - {} -  input: {}, attached={}", l.getIndex(), l.getClass().getSimpleName(), (lIn == null ? "null"
+                    : Arrays.toString(lIn.shape())), (lIn != null ? lIn.isAttached() : "n/a"));
+        }
+
+        int evalIter = 0;
         while (iter.hasNext()) {
+            log.info("Eval iter {}", evalIter);
             MultiDataSet next = iter.next();
 
             if (next.getFeatures() == null || next.getLabels() == null)
@@ -3460,8 +3469,10 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
                     INDArray[] out = silentOutput(false, features);
 
                     try (MemoryWorkspace wsO = Nd4j.getWorkspaceManager().scopeOutOfWorkspaces()) {
-                        for (T evaluation : evaluations)
+                        for (T evaluation : evaluations) {
+                            log.info("Eval iter {} - {}", evalIter, evaluation.getClass().getSimpleName());
                             evaluation.eval(labels, out[0], labelMask);
+                        }
                     }
                 } else {
                     rnnClearPreviousState();
@@ -3507,6 +3518,7 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
                 //Clear inputs, masks etc. Important to avoid leaking invalidated/out of scope arrays between iterations
                 clearLayersStates();
             }
+            evalIter++;
         }
 
         if (iterator.asyncSupported())
