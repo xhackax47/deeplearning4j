@@ -3438,7 +3438,7 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
 
         boolean useRnnSegments = (configuration.getBackpropType() == BackpropType.TruncatedBPTT);
 
-        log.info("??? Starting Evaluation ???");
+        log.info("??? Starting Evaluation ??? - thread ID: {} - {}", Thread.currentThread().getId(), Thread.currentThread().getName());
         for(Layer l : layers){
             INDArray lIn = l.input();
             log.info("{} - {} -  input: {}, attached={}", l.getIndex(), l.getClass().getSimpleName(), (lIn == null ? "null"
