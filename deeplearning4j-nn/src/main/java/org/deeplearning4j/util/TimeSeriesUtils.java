@@ -18,6 +18,7 @@
 
 package org.deeplearning4j.util;
 
+import lombok.extern.slf4j.Slf4j;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.CustomOp;
 import org.nd4j.linalg.api.ops.DynamicCustomOp;
@@ -35,6 +36,7 @@ import java.util.Arrays;
  * Basic time series utils
  * @author Adam Gibson
  */
+@Slf4j
 public class TimeSeriesUtils {
 
 
@@ -133,6 +135,7 @@ public class TimeSeriesUtils {
             in = in.dup('f');
         }
 
+
         int[] idxs = new int[in.size(2)];
         int j=0;
         for( int i=idxs.length-1; i>=0; i--){
@@ -140,6 +143,7 @@ public class TimeSeriesUtils {
         }
 
         INDArray inReshape = in.reshape('f', in.size(0)*in.size(1), in.size(2));
+        log.info("TimeSeriesUtils - about to pull rows: from {}, idxs {}", inReshape.shapeInfoToString(), Arrays.toString(idxs));
 
         INDArray outReshape = Nd4j.pullRows(inReshape, 0, idxs, 'f');
         return outReshape.reshape('f', in.size(0), in.size(1), in.size(2));
