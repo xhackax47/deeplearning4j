@@ -510,8 +510,6 @@ public class BidirectionalLayer implements RecurrentLayer {
     public void migrateInput() {
         List<MemoryWorkspace> wss = Nd4j.getWorkspaceManager().getAllWorkspacesForCurrentThread();
         log.info("Migrating input: {} - {}; workspaces: ", getClass().getSimpleName(), layerConf.getLayerName(), wss);
-        fwd.migrateInput();
-        bwd.migrateInput();
         INDArray fIn = fwd.input();
         INDArray fM = fwd.getMaskArray();
         INDArray bIn = bwd.input();
@@ -522,6 +520,8 @@ public class BidirectionalLayer implements RecurrentLayer {
         log.info("--> bwd: {} - {} -  input: {}, attached={}, ws={}; mask: {}, attached={}, ws={}", bwd.getIndex(), bwd.getClass().getSimpleName(),
                 (bIn == null ? "null" : Arrays.toString(bIn.shape())), (bIn != null ? bIn.isAttached() : "n/a"), (bIn != null && bIn.isAttached() ? bIn.data().getParentWorkspace().getId() : "-"),
                 (bM == null ? "null" : Arrays.toString(bM.shape())), (bM != null ? bM.isAttached() : "n/a"), (bM != null && bM.isAttached() ? bM.data().getParentWorkspace().getId() : "-"));
+        fwd.migrateInput();
+        bwd.migrateInput();
     }
 
     @Override
