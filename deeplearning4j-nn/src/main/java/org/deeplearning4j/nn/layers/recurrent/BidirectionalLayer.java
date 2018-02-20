@@ -15,14 +15,12 @@ import org.deeplearning4j.nn.params.BidirectionalParamInitializer;
 import org.deeplearning4j.optimize.api.ConvexOptimizer;
 import org.deeplearning4j.optimize.api.IterationListener;
 import org.deeplearning4j.util.TimeSeriesUtils;
+import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.primitives.Pair;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.nd4j.linalg.indexing.NDArrayIndex.all;
 import static org.nd4j.linalg.indexing.NDArrayIndex.interval;
@@ -510,7 +508,8 @@ public class BidirectionalLayer implements RecurrentLayer {
 
     @Override
     public void migrateInput() {
-        log.info("Migrating input: {} - {}", getClass().getSimpleName(), layerConf.getLayerName());
+        List<MemoryWorkspace> wss = Nd4j.getWorkspaceManager().getAllWorkspacesForCurrentThread();
+        log.info("Migrating input: {} - {}; workspaces: ", getClass().getSimpleName(), layerConf.getLayerName(), wss);
         fwd.migrateInput();
         bwd.migrateInput();
         INDArray fIn = fwd.input();
