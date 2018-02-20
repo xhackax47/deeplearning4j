@@ -2,6 +2,7 @@ package org.deeplearning4j.nn.layers.recurrent;
 
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
 import org.deeplearning4j.nn.api.layers.RecurrentLayer;
@@ -18,6 +19,7 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.primitives.Pair;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,6 +38,7 @@ import static org.nd4j.linalg.indexing.NDArrayIndex.point;
  *
  * @author Alex Black
  */
+@Slf4j
 public class BidirectionalLayer implements RecurrentLayer {
 
     private NeuralNetConfiguration conf;
@@ -507,8 +510,19 @@ public class BidirectionalLayer implements RecurrentLayer {
 
     @Override
     public void migrateInput() {
+        log.info("Migrating input: {} - {}", getClass().getSimpleName(), layerConf.getLayerName());
         fwd.migrateInput();
         bwd.migrateInput();
+        INDArray fIn = fwd.input();
+        INDArray fM = fwd.getMaskArray();
+        INDArray bIn = bwd.input();
+        INDArray bM = bwd.getMaskArray();
+        log.info("--> fwd: {} - {} -  input: {}, attached={}, ws={}; mask: {}, attached={}, ws={}", fwd.getIndex(), fwd.getClass().getSimpleName(),
+                (fIn == null ? "null" : Arrays.toString(fIn.shape())), (fIn != null ? fIn.isAttached() : "n/a"), (fIn != null && fIn.isAttached() ? fIn.data().getParentWorkspace().getId() : "-"),
+                (fM == null ? "null" : Arrays.toString(fM.shape())), (fM != null ? fM.isAttached() : "n/a"), (fM != null && fM.isAttached() ? fM.data().getParentWorkspace().getId() : "-"));
+        log.info("--> bwd: {} - {} -  input: {}, attached={}, ws={}; mask: {}, attached={}, ws={}", bwd.getIndex(), bwd.getClass().getSimpleName(),
+                (bIn == null ? "null" : Arrays.toString(bIn.shape())), (bIn != null ? bIn.isAttached() : "n/a"), (bIn != null && bIn.isAttached() ? bIn.data().getParentWorkspace().getId() : "-"),
+                (bM == null ? "null" : Arrays.toString(bM.shape())), (bM != null ? bM.isAttached() : "n/a"), (bM != null && bM.isAttached() ? bM.data().getParentWorkspace().getId() : "-"));
     }
 
     @Override
