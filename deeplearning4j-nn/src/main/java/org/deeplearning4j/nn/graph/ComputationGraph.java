@@ -47,6 +47,7 @@ import org.deeplearning4j.nn.graph.vertex.VertexIndices;
 import org.deeplearning4j.nn.graph.vertex.impl.InputVertex;
 import org.deeplearning4j.nn.graph.vertex.impl.LayerVertex;
 import org.deeplearning4j.nn.layers.FrozenLayer;
+import org.deeplearning4j.nn.layers.recurrent.BidirectionalLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.optimize.Solver;
@@ -3519,6 +3520,28 @@ public class ComputationGraph implements Serializable, Model, NeuralNetwork {
 
                 //Clear inputs, masks etc. Important to avoid leaking invalidated/out of scope arrays between iterations
                 clearLayersStates();
+
+                for(Layer l : layers){
+                    INDArray lIn = l.input();
+                    log.info("After clearing: {} - {} -  input: {}, attached={}", l.getIndex(), l.getClass().getSimpleName(), (lIn == null ? "null"
+                            : Arrays.toString(lIn.shape())), (lIn != null ? lIn.isAttached() : "n/a"));
+                    if(l instanceof BidirectionalLayer){
+                        BidirectionalLayer bl = (BidirectionalLayer)l;
+                        Layer fwd = bl.getFwd();
+                        Layer bwd = bl.getBwd();
+                        INDArray fIn = fwd.input();
+                        INDArray fM = fwd.getMaskArray();
+                        INDArray bIn = bwd.input();
+                        INDArray bM = bwd.getMaskArray();
+                        log.info("--> fwd: {} - {} -  input: {}, attached={}, ws={}; mask: {}, attached={}, ws={}", fwd.getIndex(), fwd.getClass().getSimpleName(),
+                                (fIn == null ? "null" : Arrays.toString(fIn.shape())), (fIn != null ? fIn.isAttached() : "n/a"), (fIn != null && fIn.isAttached() ? fIn.data().getParentWorkspace().getId() : "-"),
+                                (fM == null ? "null" : Arrays.toString(fM.shape())), (fM != null ? fM.isAttached() : "n/a"), (fM != null && fM.isAttached() ? fM.data().getParentWorkspace().getId() : "-"));
+                        log.info("--> bwd: {} - {} -  input: {}, attached={}, ws={}; mask: {}, attached={}, ws={}", bwd.getIndex(), bwd.getClass().getSimpleName(),
+                                (bIn == null ? "null" : Arrays.toString(bIn.shape())), (bIn != null ? bIn.isAttached() : "n/a"), (bIn != null && bIn.isAttached() ? bIn.data().getParentWorkspace().getId() : "-"),
+                                (bM == null ? "null" : Arrays.toString(bM.shape())), (bM != null ? bM.isAttached() : "n/a"), (bM != null && bM.isAttached() ? bM.data().getParentWorkspace().getId() : "-"));
+                    }
+                }
+
             }
             evalIter++;
         }

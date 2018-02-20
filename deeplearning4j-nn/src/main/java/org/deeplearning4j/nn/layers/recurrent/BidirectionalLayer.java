@@ -1,5 +1,6 @@
 package org.deeplearning4j.nn.layers.recurrent;
 
+import lombok.Getter;
 import lombok.NonNull;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
@@ -38,8 +39,8 @@ import static org.nd4j.linalg.indexing.NDArrayIndex.point;
 public class BidirectionalLayer implements RecurrentLayer {
 
     private NeuralNetConfiguration conf;
-    private RecurrentLayer fwd;
-    private RecurrentLayer bwd;
+    @Getter private RecurrentLayer fwd;
+    @Getter private RecurrentLayer bwd;
 
     private Bidirectional layerConf;
     private INDArray paramsView;
