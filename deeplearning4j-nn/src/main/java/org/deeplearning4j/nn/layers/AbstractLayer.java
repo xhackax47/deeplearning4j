@@ -20,6 +20,7 @@ package org.deeplearning4j.nn.layers;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.MaskState;
 import org.deeplearning4j.nn.api.layers.LayerConstraint;
@@ -27,6 +28,7 @@ import org.deeplearning4j.nn.conf.CacheMode;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.graph.ComputationGraph;
+import org.deeplearning4j.nn.layers.recurrent.LSTM;
 import org.deeplearning4j.optimize.api.ConvexOptimizer;
 import org.deeplearning4j.optimize.api.IterationListener;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
@@ -41,6 +43,7 @@ import java.util.*;
  */
 @Data
 @NoArgsConstructor
+@Slf4j
 public abstract class AbstractLayer<LayerConfT extends org.deeplearning4j.nn.conf.layers.Layer> implements Layer {
 
     protected INDArray input, preOutput;
@@ -108,12 +111,33 @@ public abstract class AbstractLayer<LayerConfT extends org.deeplearning4j.nn.con
     @Override
     public void migrateInput(){
         if(input != null && input.isAttached()){
+            if(this.getClass() == LSTM.class){
+                MemoryWorkspace ws = input.data().getParentWorkspace();
+                String pWID = (ws == null ? "null" : ws.getId());
+                String active = (ws == null ? "n/a" : String.valueOf(ws.isScopeActive()));
+                long genId = (ws == null ? -1 : ws.getGenerationId());
+
+                List<MemoryWorkspace> allWss = Nd4j.getWorkspaceManager().getAllWorkspacesForCurrentThread();
+                StringBuilder sb = new StringBuilder();
+                sb.append("[");
+                for(MemoryWorkspace ws2 : allWss){
+                    sb.append(ws2.getId()).append(":genId=").append(ws2.getGenerationId()).append(";active=").append(ws2.isScopeActive());
+                    sb.append(" / ");
+                }
+                sb.append("]");
+
+                log.info("About to migrate input: layer {}, shape {}, attached {}, array genId {}, parent WS {} - is active {} - genId {}, current WSs {}",
+                        layerConf().getLayerName(), Arrays.toString(input.shape()), input.isAttached(), input.data().getGenerationId(),
+                        pWID, active, genId, sb.toString());
+            }
             input = input.migrate(true);
         }
         if(preOutput != null && preOutput.isAttached()){
+            log.info("About to migrate preOutput - {} - {}", getClass().getSimpleName(), layerConf().getLayerName());
             preOutput = preOutput.migrate(true);
         }
         if(maskArray != null && maskArray.isAttached()){
+            log.info("About to migrate maskArray - {} - {}", getClass().getSimpleName(), layerConf().getLayerName());
             maskArray = maskArray.migrate(true);
         }
     }
