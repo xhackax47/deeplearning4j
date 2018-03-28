@@ -1,5 +1,7 @@
 package org.deeplearning4j.gradientcheck;
 
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.deeplearning4j.BaseDL4JTest;
 import org.deeplearning4j.TestUtils;
 import org.deeplearning4j.datasets.iterator.impl.IrisDataSetIterator;
@@ -23,8 +25,14 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.learning.config.NoOp;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.nd4j.linalg.primitives.Pair;
 
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.deeplearning4j.nn.conf.ConvolutionMode.Same;
 import static org.deeplearning4j.nn.conf.ConvolutionMode.Truncate;
@@ -33,6 +41,7 @@ import static org.junit.Assert.*;
 /**
  * Created by nyghtowl on 9/1/15.
  */
+@Slf4j
 public class CNNGradientCheckTest extends BaseDL4JTest {
     private static final boolean PRINT_RESULTS = true;
     private static final boolean RETURN_ON_FIRST_FAILURE = false;
@@ -42,6 +51,105 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     static {
         Nd4j.setDataType(DataBuffer.Type.DOUBLE);
+    }
+
+    protected List<File> getExperiments(String keyDirectory) {
+        val list = new ArrayList<File>();
+
+        val rootFolder = new File("dumpedActivations");
+        val keyFolder = new File(rootFolder, keyDirectory);
+
+        if (!keyFolder.exists())
+            throw new RuntimeException("Requested key directory [" + keyDirectory + "] doesn't exist");
+
+        val files = keyFolder.listFiles();
+
+        for (val f:files) {
+            if (f.isDirectory())
+                list.add(f);
+        }
+
+        return list;
+    }
+
+    protected List<Pair<String, INDArray>> getArrays(File folder) {
+        if (!folder.isDirectory())
+            throw new RuntimeException("Directory isn't directory");
+
+        val list = new ArrayList<Pair<String, INDArray>>();
+
+        val files = folder.listFiles();
+
+        for (val f: files) {
+            if (!f.isFile())
+                continue;
+
+            try (val is = new FileInputStream(f); val dis = new DataInputStream(is)) {
+                val array = Nd4j.read(dis);
+                list.add(Pair.create(f.getName(), array));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return list;
+    }
+
+    @Test
+    @Ignore
+    public void testComparison() throws Exception {
+        String first = "AllTestsFailed";
+        String second = "AllTestsPassed";
+
+        // building first list for comparison
+        val listFirst = getExperiments(first);
+        val listSecond = new ArrayList<File>();
+
+        // building second list for comparison
+        for (val f:listFirst) {
+            log.info("F: {}", f.getName());
+
+            val rootFolder = new File("dumpedActivations");
+            val keyFolder = new File(rootFolder, second);
+
+            if (!keyFolder.exists())
+                throw new RuntimeException("Requested key directory [" + second + "] doesn't exist");
+
+            val c = new File(keyFolder, f.getName());
+            if (!c.exists() || !c.isDirectory())
+                throw new RuntimeException("Failed to find directory for comparison");
+
+            listSecond.add(c);
+        }
+
+        assertNotEquals(0, listFirst.size());
+
+        for (int e = 0; e < listFirst.size(); e++) {
+            val fL = listFirst.get(e);
+            val fR = listSecond.get(e);
+
+            val listL = getArrays(fL);
+            val listR = getArrays(fR);
+
+            assertEquals(listL.size(), listR.size());
+            assertNotEquals(0, listL.size());
+
+            log.info("Starting on experiment [{}]", fL.getName());
+            for (int f = 0; f < listL.size(); f++) {
+                val aL = listL.get(f).getSecond();
+                val aR = listR.get(f).getSecond();
+
+                val meanL = aL.meanNumber();
+                val meanR = aR.meanNumber();
+
+                log.info("File: {}; MeanL: {}; MeanR: {}", listL.get(f).getFirst(), meanL, meanR);
+
+                assertEquals("Failed at Step [" + fL.getName() + "] at layer [" + listL.get(f).getFirst() + "]", aL, aR);
+            }
+
+
+            log.info("--------------------------");
+        }
     }
 
     @Test
