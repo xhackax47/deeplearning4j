@@ -20,8 +20,10 @@ package org.deeplearning4j.nn.multilayer;
 
 
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.deeplearning4j.datasets.iterator.AsyncDataSetIterator;
@@ -74,9 +76,8 @@ import org.nd4j.linalg.schedule.ISchedule;
 import org.nd4j.linalg.util.FeatureUtil;
 import org.nd4j.util.OneTimeLogger;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
+import java.nio.file.Path;
 import java.util.*;
 
 import static org.deeplearning4j.nn.graph.ComputationGraph.workspaceConfigurationCache;
@@ -92,6 +93,12 @@ import static org.deeplearning4j.nn.graph.ComputationGraph.workspaceConfiguratio
  */
 @Slf4j
 public class MultiLayerNetwork implements Serializable, Classifier, Layer, NeuralNetwork {
+
+    protected boolean dumpActivations = false;
+    protected boolean dumpEpsilons = false;
+
+    protected String dumpKey = "dumpKey";
+    protected String dumpId = "dumpId";
 
     //the hidden neural network layers (including output layer)
     protected Layer[] layers;
@@ -146,6 +153,25 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer, Neura
     public MultiLayerNetwork(MultiLayerConfiguration conf) {
         this.layerWiseConfigurations = conf;
         this.defaultConfiguration = conf.getConf(0).clone();
+
+        if (System.getenv("DL4J_DUMP_ACTIVATIONS") != null)
+            this.dumpActivations = true;
+
+        if (System.getenv("DL4J_DUMP_EPSILONS") != null)
+            this.dumpEpsilons = true;
+    }
+
+    public void dumpActivations(boolean reallyDump) {
+        this.dumpActivations = reallyDump;
+    }
+
+    public void dumpEpsilons(boolean reallyDump) {
+        this.dumpEpsilons = reallyDump;
+    }
+
+    public void setDumpKeys(@NonNull String dumpKey, @NonNull String dumpId) {
+        this.dumpKey = dumpKey;
+        this.dumpId = dumpId;
     }
 
     /**
@@ -2402,6 +2428,50 @@ public class MultiLayerNetwork implements Serializable, Classifier, Layer, Neura
                 if (layerWiseConfigurations.getInputPreProcess(layers.length - 1) != null)
                     actSecondLastLayer = layerWiseConfigurations.getInputPreProcess(layers.length - 1)
                             .preProcess(actSecondLastLayer, getInputMiniBatchSize());
+
+                if (dumpActivations) {
+                    Nd4j.getExecutioner().commit();
+
+                    String rootS = "dumpedActivations";
+                    File rootF = new File(rootS);
+                    if (!rootF.exists()) {
+                        if (!rootF.mkdir())
+                            throw new RuntimeException("Can't create root directory for dumps");
+                    }
+
+                    File folderKey = new File(rootF, dumpKey);
+                    if (!folderKey.exists()) {
+                        if (!folderKey.mkdir())
+                            throw new RuntimeException("Can't create key directory for dumps");
+                    }
+
+                    File folderId = new File(folderKey, dumpId);
+                    if (!folderId.exists()) {
+                        if (!folderId.mkdir())
+                            throw new RuntimeException("Can't create ID directory for dumps");
+                    }
+
+                    int cnt = 0;
+                    for (val a:activations) {
+                        String fname = "a_" + cnt++ + ".bin";
+                        File file = new File(folderId, fname);
+                        try (val os = new FileOutputStream(file); val dos = new DataOutputStream(os)) {
+                            Nd4j.write(a, dos);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    // saving this activation separately
+                    String fname = "a_" + cnt++ + ".bin";
+                    File file = new File(folderId, fname);
+                    try (val os = new FileOutputStream(file); val dos = new DataOutputStream(os)) {
+                        Nd4j.write(actSecondLastLayer, dos);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
                 getOutputLayer().setInput(actSecondLastLayer);
                 //Then: compute gradients
                 backprop();
