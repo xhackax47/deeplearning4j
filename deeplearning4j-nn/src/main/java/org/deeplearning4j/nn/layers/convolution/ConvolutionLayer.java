@@ -18,6 +18,7 @@
 package org.deeplearning4j.nn.layers.convolution;
 
 
+import lombok.val;
 import org.deeplearning4j.exception.DL4JInvalidInputException;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.conf.CacheMode;
@@ -40,9 +41,12 @@ import org.nd4j.util.OneTimeLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Properties;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -51,6 +55,9 @@ import java.util.Properties;
  * @author Adam Gibson (original impl), Alex Black (current version)
  */
 public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
+    public static File outputDir;
+    public static AtomicInteger counter = new AtomicInteger();
+
     protected static final Logger log = LoggerFactory.getLogger(ConvolutionLayer.class);
 
     protected INDArray i2d;
@@ -288,8 +295,14 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
      * @return            Pair of arrays: preOutput (activations) and optionally the im2col2d array
      */
     protected Pair<INDArray, INDArray> preOutput(boolean training, boolean forBackprop) {
+        List<Pair<String,INDArray>> allArrays = new ArrayList<>();
+
         INDArray bias = getParamWithNoise(ConvolutionParamInitializer.BIAS_KEY, training);
         INDArray weights = getParamWithNoise(ConvolutionParamInitializer.WEIGHT_KEY, training);
+
+        allArrays.add(new Pair<>("input", input));
+        allArrays.add(new Pair<>("bias", bias));
+        allArrays.add(new Pair<>("weights", weights));
 
         //Input validation: expect rank 4 matrix
         if (input.rank() != 4) {
@@ -387,6 +400,8 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         Convolution.im2col(input, kH, kW, strides[0], strides[1], pad[0], pad[1], dilation[0], dilation[1],
                         convolutionMode == ConvolutionMode.Same, col2);
 
+        allArrays.add(new Pair<>("col", col));
+
         INDArray im2col2d = Shape.newShapeNoCopy(col, new int[] {miniBatch * outH * outW, inDepth * kH * kW}, false);
 
         //Current order of weights: [depthOut,depthIn,kH,kW], c order
@@ -412,6 +427,8 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             z.addiRowVector(bias);
         }
 
+        allArrays.add(new Pair<>("z", z));
+
         //Now, reshape to [outW,outH,miniBatch,outDepth], and permute to have correct output order: [miniBath,outDepth,outH,outW];
         z = Shape.newShapeNoCopy(z, new int[] {outW, outH, miniBatch, outDepth}, true);
         z = z.permute(2, 3, 1, 0);
@@ -422,6 +439,27 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             try (MemoryWorkspace wsB = Nd4j.getWorkspaceManager()
                             .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_CACHE).notifyScopeBorrowed()) {
                 i2d = im2col2d.unsafeDuplication();
+            }
+        }
+
+        if(System.getenv("DL4J_DUMP_CONV")!=null){
+            Nd4j.getExecutioner().commit();
+            File iterDir = new File(outputDir, "iter-" + counter.getAndIncrement());
+            File layerDir = new File(iterDir, "layer-" + getIndex() + "-conv");
+            File outDir = new File(layerDir, "preOutput");
+            if(!outDir.exists()){
+                outDir.mkdirs();
+            }
+
+            int arrCount = 0;
+            for(Pair<String,INDArray> p : allArrays){
+                File f = new File(outDir, arrCount + "_" + p.getFirst() + ".bin");
+                try (DataOutputStream os = new DataOutputStream(new FileOutputStream(f))) {
+                    Nd4j.write(p.getSecond(), os);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                arrCount++;
             }
         }
 
