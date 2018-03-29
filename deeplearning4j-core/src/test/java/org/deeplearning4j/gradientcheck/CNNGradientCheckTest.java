@@ -1307,21 +1307,25 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     public static File baseOutputDir = new File("D:/DL4JDebug");
 
-    public static void configureConvDumpBefore(String testMethodName, String testCaseName, int testCaseNumber){
-        File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
+    public static void configureConvDumpBefore(String testMethodName, String testCaseName, int testCaseNumber) {
+        if (System.getenv("DL4J_DUMP_CONV") != null) {
+            File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
 
-        org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.outputDir = testOutputDir;
-        org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.counter.set(0);
+            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.outputDir = testOutputDir;
+            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.counter.set(0);
+        }
     }
 
-    public static void configureConvDumpAfter(String testMethodName, String testCaseName, int testCaseNumber, boolean successful){
-        File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
+    public static void configureConvDumpAfter(String testMethodName, String testCaseName, int testCaseNumber, boolean successful) {
+        if (System.getenv("DL4J_DUMP_CONV") != null) {
+            File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
 
-        File f = new File(testOutputDir, successful ? "SUCCESS" : "FAIL");
-        try {
-            f.createNewFile();
-        } catch (Exception e){
-            throw new RuntimeException(e);
+            File f = new File(testOutputDir, successful ? "SUCCESS" : "FAIL");
+            try {
+                f.createNewFile();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -1355,12 +1359,14 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
                             list = new ArrayList<>();
                             success.put(testCaseNum, list);
                         }
-                    } else {
+                    } else if(failFile.exists()) {
                         list = failed.get(testCaseNum);
                         if(list == null){
                             list = new ArrayList<>();
                             failed.put(testCaseNum, list);
                         }
+                    } else {
+                        throw new RuntimeException("No success or fail file: " + testCase);
                     }
                     list.add(testCase);
                 }

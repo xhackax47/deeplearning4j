@@ -41,10 +41,7 @@ import org.nd4j.util.OneTimeLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -454,7 +451,7 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             int arrCount = 0;
             for(Pair<String,INDArray> p : allArrays){
                 File f = new File(outDir, arrCount + "_" + p.getFirst() + ".bin");
-                try (DataOutputStream os = new DataOutputStream(new FileOutputStream(f))) {
+                try (DataOutputStream os = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)))) {
                     Nd4j.write(p.getSecond(), os);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
