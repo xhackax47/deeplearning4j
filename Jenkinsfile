@@ -1,5 +1,5 @@
 #!groovy
-#@Library('skymind@bugfix/change-build-logic') _
+// @Library('skymind@bugfix/change-build-logic') _
 
 /*
     To redefine some job/run parameters,
