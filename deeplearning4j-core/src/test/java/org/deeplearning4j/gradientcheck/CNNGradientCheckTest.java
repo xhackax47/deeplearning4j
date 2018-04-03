@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.buffer.DataBuffer;
 import org.nd4j.linalg.api.buffer.util.DataTypeUtil;
+import org.nd4j.linalg.api.iter.NdIndexIterator;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
@@ -1294,21 +1295,36 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
     }
 
 
-    public static File KNOWN_FAILURE = null;
-    public static File baseOutputDir = new File("D:/DL4JDebugFailOnly");
+//    public static File KNOWN_FAILURE = null;
+//    public static File baseOutputDir = new File("D:/DL4JDebugFailOnly");
+
+    public static File KNOWN_FAILURE = new File("D:/DL4JDebugFailOnly");
+    public static final long KNOWN_FAILURE_TIMESTAMP = 1522730553880L;
+    public static File baseOutputDir = new File("D:/DL4JDebugComparison");
 
     public static void configureConvDumpBefore(String testMethodName, String testCaseName, int testCaseNumber) {
         if (System.getenv("DL4J_DUMP_CONV") != null) {
             File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
             testOutputDir.mkdirs();
 
+            File failedOutputDir = new File(KNOWN_FAILURE,  testMethodName + "/" + KNOWN_FAILURE_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
+
             org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.allArraysVsIter.clear();
             org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.layerCounterMap.clear();
 
-            GradientCheckUtil.saveOnFailureMode = true;
-            GradientCheckUtil.comparisonMode = false;
+            //Produce failures
+//            GradientCheckUtil.saveOnFailureMode = true;
+//            GradientCheckUtil.comparisonMode = false;
+//            GradientCheckUtil.saveDir = testOutputDir;
+//            GradientCheckUtil.failedTestDirComparison = null;
+
+            //Produce comparison
+            GradientCheckUtil.saveOnFailureMode = false;
+            GradientCheckUtil.comparisonMode = true;
             GradientCheckUtil.saveDir = testOutputDir;
-            GradientCheckUtil.failedTestDirComparison = null;
+            GradientCheckUtil.failedTestDirComparison = failedOutputDir;
+            Nd4j.getExecutioner().enableDebugMode(true);
+
             System.gc();
         }
     }
@@ -1329,97 +1345,51 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     @Test
     @Ignore
-    public void analyzeTest(){
-        String testMethodName = "";
+    public void analyzeDumps(){
+        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnMultiLayer\\1522730553880\\14-2-SIGMOID-MAX-5");
+        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnMultiLayer\\1522733759149\\14-2-SIGMOID-MAX-5");
 
-        File baseDir = new File(baseOutputDir, testMethodName);
-        File[] testRunDirs = baseDir.listFiles();
+        String d1 = dir1.getAbsolutePath();
+        String d2 = dir2.getAbsolutePath();
 
-        Map<Integer, List<File>> success = new HashMap<>();
-        Map<Integer, List<File>> failed = new HashMap<>();
+        List<File> f = new ArrayList<>(FileUtils.listFiles(dir1, new String[]{"bin"}, true));
+        Collections.sort(f, new Comparator<File>() {
+            @Override
+            public int compare(File f1, File f2) {
+                return f1.getAbsolutePath().compareTo(f2.getAbsolutePath());
+            }
+        });
 
-        for(File f : testRunDirs){
-            File[] allRuns = f.listFiles();
-            for(File timestampFolder : allRuns){
-                File[] allCases = timestampFolder.listFiles();
-                for(File testCase : allCases){
-                    String path = testCase.getPath();
-                    int idx1 = path.lastIndexOf("/");
-                    int idx2 = path.lastIndexOf("-");
-                    int testCaseNum = Integer.parseInt(path.substring(idx1+1, idx2));
-                    File successFile = new File(testCase, "SUCCESS");
-                    File failFile = new File(testCase, "FAIL");
-                    List<File> list;
-                    if(successFile.exists()){
-                        list = success.get(testCaseNum);
-                        if(list == null){
-                            list = new ArrayList<>();
-                            success.put(testCaseNum, list);
-                        }
-                    } else if(failFile.exists()) {
-                        list = failed.get(testCaseNum);
-                        if(list == null){
-                            list = new ArrayList<>();
-                            failed.put(testCaseNum, list);
-                        }
-                    } else {
-                        throw new RuntimeException("No success or fail file: " + testCase);
-                    }
-                    list.add(testCase);
+        for(File f1 : f){
+            String fullPath = f1.getAbsolutePath();
+            if(!fullPath.startsWith(d1)){
+                throw new RuntimeException(fullPath);
+            }
+
+            String relative = fullPath.substring(d1.length());
+
+            File f2 = new File(dir2, relative);
+            if(!f2.exists()){
+                log.warn("Doesn't exist - skipping - {}", f2.getAbsolutePath());
+//                throw new RuntimeException("Doesn't exist: " + f2.getAbsolutePath());
+                continue;
+            }
+
+            INDArray exp = read(f2);
+            INDArray actFailure = read(f1);
+
+            double expMean = exp.meanNumber().doubleValue();
+            double failMean = actFailure.meanNumber().doubleValue();
+
+            double relError = Math.abs(expMean - failMean) / (Math.abs(expMean) + Math.abs(failMean));
+            if(relError > 1e-8){
+                System.out.println("Error: meanSuccess=" + expMean + ", meanFail=" + failMean + " - " + f1);
+                NdIndexIterator iter = new NdIndexIterator(exp.shape());
+                while(iter.hasNext()){
+                    int[] pos = iter.next();
+                    System.out.println(exp.getDouble(pos) + "\t" + actFailure.getDouble(pos));
                 }
             }
-        }
-
-        //First: find a successful test run and a failed test run to compare...
-
-        Set<Integer> caseSet = new HashSet<>();
-        caseSet.addAll(success.keySet());
-        caseSet.addAll(failed.keySet());
-        List<Integer> sorted = new ArrayList<>(caseSet);
-        Collections.sort(sorted);
-
-        List<Triple<Integer,File,File>> passAndFailCases = new ArrayList<>();
-
-        for(Integer caseNum : sorted){
-            if(success.containsKey(caseNum) && failed.containsKey(caseNum)){
-                log.info("Found success and failed cases for test case {}", caseNum);
-            }
-            passAndFailCases.add(new Triple<>(caseNum, success.get(caseNum).get(0), failed.get(caseNum).get(0)));
-        }
-
-        for(Triple<Integer,File,File> t : passAndFailCases){
-            File s = t.getSecond();
-            File f = t.getThird();
-
-            //Expected directory structure: /iter-X/layer-Y-conv/preOutput/0_weights.bin
-
-
-            List<File> allArraysSuccess = new ArrayList<>(FileUtils.listFiles(s, new String[]{"bin"}, true));
-            List<File> allArraysFail = new ArrayList<>(FileUtils.listFiles(f, new String[]{"bin"}, true));
-
-            Collections.sort(allArraysSuccess);
-            Collections.sort(allArraysFail);
-
-            if(allArraysSuccess.size() != allArraysFail.size()){
-                throw new IllegalStateException("Success files: " + allArraysSuccess.size() + ", Fail files: " + allArraysFail.size());
-            }
-
-            for( int i=0; i<allArraysSuccess.size(); i++ ){
-                File successArray = allArraysSuccess.get(i);
-                File failArray = allArraysFail.get(i);
-
-                INDArray sArr = read(successArray);
-                INDArray fArr = read(failArray);
-
-                double meanSuccess = sArr.meanNumber().doubleValue();
-                double meanFail = fArr.meanNumber().doubleValue();
-
-                double relError = Math.abs(meanSuccess - meanFail) / (Math.abs(meanSuccess) + Math.abs(meanFail));
-                if(relError > 1e-8){
-                    System.out.println("Error: meanSuccess=" + meanSuccess + ", meanFail=" + meanFail + " - " + sArr);
-                }
-            }
-
         }
     }
 

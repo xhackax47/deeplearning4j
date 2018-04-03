@@ -307,9 +307,9 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         INDArray bias = getParamWithNoise(ConvolutionParamInitializer.BIAS_KEY, training);
         INDArray weights = getParamWithNoise(ConvolutionParamInitializer.WEIGHT_KEY, training);
 
-        allArrays.add(new Pair<>("input", input));
-        allArrays.add(new Pair<>("bias", bias));
-        allArrays.add(new Pair<>("weights", weights));
+        allArrays.add(new Pair<>("input" + (forBackprop ? "_backprop" : ""), input));
+        allArrays.add(new Pair<>("bias" + (forBackprop ? "_backprop" : ""), bias));
+        allArrays.add(new Pair<>("weights" + (forBackprop ? "_backprop" : ""), weights));
 
         //Input validation: expect rank 4 matrix
         if (input.rank() != 4) {
@@ -407,7 +407,7 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         Convolution.im2col(input, kH, kW, strides[0], strides[1], pad[0], pad[1], dilation[0], dilation[1],
                 convolutionMode == ConvolutionMode.Same, col2);
 
-        allArrays.add(new Pair<>("col", col));
+        allArrays.add(new Pair<>("col" + (forBackprop ? "_backprop" : ""), col));
 
         INDArray im2col2d = Shape.newShapeNoCopy(col, new int[] {miniBatch * outH * outW, inDepth * kH * kW}, false);
 
@@ -434,7 +434,7 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             z.addiRowVector(bias);
         }
 
-        allArrays.add(new Pair<>("z", z));
+        allArrays.add(new Pair<>("z" + (forBackprop ? "_backprop" : ""), z));
 
         //Now, reshape to [outW,outH,miniBatch,outDepth], and permute to have correct output order: [miniBath,outDepth,outH,outW];
         z = Shape.newShapeNoCopy(z, new int[] {outW, outH, miniBatch, outDepth}, true);
