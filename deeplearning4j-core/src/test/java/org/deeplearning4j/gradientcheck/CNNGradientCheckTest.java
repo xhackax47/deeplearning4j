@@ -424,6 +424,8 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     @Test
     public void testCnnWithSubsampling() {
+        int failCount = 0;
+
         Nd4j.getRandom().setSeed(12345);
         int nOut = 4;
 
@@ -494,13 +496,21 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 //                    TestUtils.testModelSerialization(net);
                     configureConvDumpAfter("testCnnWithSubsampling", testName, testNum, gradOK);
                     testNum++;
+
+                    if(!gradOK){
+                        failCount++;
+                    }
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test
     public void testCnnWithSubsamplingV2() {
+        int failCount = 0;
+
         Nd4j.getRandom().setSeed(12345);
         int nOut = 4;
 
@@ -568,13 +578,20 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     configureConvDumpAfter("testCnnWithSubsamplingV2", testName, testNum, gradOK);
                     testNum++;
+
+                    if(!gradOK)
+                        failCount++;
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test
     public void testCnnMultiLayer() {
+        int failCount = 0;
+
         int nOut = 2;
 
         int[] minibatchSizes = {1, 2, 5};
@@ -640,15 +657,21 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                         configureConvDumpAfter("testCnnMultiLayer", testName, testNum, gradOK);
                         testNum++;
+
+                        if(!gradOK)
+                            failCount++;
                     }
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
 
     @Test
     public void testCnnSamePaddingMode() {
+        int failCount = 0;
         int nOut = 2;
 
         int[] minibatchSizes = {1, 3};
@@ -709,14 +732,20 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                         configureConvDumpAfter("testCnnSamePaddingMode", testName, testNum, gradOK);
                         testNum++;
+
+                        if(!gradOK)
+                            failCount++;
                     }
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test
     public void testCnnSamePaddingModeStrided() {
+        int failCount = 0;
         int nOut = 2;
 
         int[] minibatchSizes = {1, 3};
@@ -784,16 +813,22 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                             configureConvDumpAfter("testCnnSamePaddingModeStrided", testName, testNum, gradOK);
                             testNum++;
+
+                            if(!gradOK)
+                                failCount++;
                         }
                     }
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
 
     @Test
     public void testCnnZeroPaddingLayer() {
+        int failCount = 0;
         Nd4j.getRandom().setSeed(12345);
         int nOut = 4;
 
@@ -863,9 +898,14 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     configureConvDumpAfter("testCnnZeroPaddingLayer", testName, testNum, gradOK);
                     testNum++;
+
+                    if(!gradOK)
+                        failCount++;
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -906,6 +946,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     @Test
     public void testDeconvolution2D() {
+        int failCount = 0;
         int nOut = 2;
 
         int[] minibatchSizes = new int[]{1, 3, 1, 3, 1, 3, 1, 3};
@@ -976,11 +1017,17 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 //            TestUtils.testModelSerialization(net);
 
             configureConvDumpAfter("testDeconvolution2D", testName, i, gradOK);
+
+            if(!gradOK)
+                failCount++;
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test
     public void testSeparableConv2D() {
+        int failCount = 0;
         int nOut = 2;
 
         int[] minibatchSizes = new int[] {1, 3};
@@ -1057,11 +1104,17 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 //            TestUtils.testModelSerialization(net);
 
             configureConvDumpAfter("testSeparableConv2D", testName, t, gradOK);
+
+            if(!gradOK)
+                failCount++;
         }
+
+        assertEquals(0, failCount);
     }
 
     @Test
     public void testCnnDilated() {
+        int failCount = 0;
         int nOut = 2;
 
         int minibatchSize = 3;
@@ -1146,12 +1199,18 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 //            TestUtils.testModelSerialization(net);
 
             configureConvDumpAfter("testCnnDilated", testName, t, gradOK);
+
+            if(!gradOK)
+                failCount++;
         }
+
+        assertEquals(0, failCount);
     }
 
 
     @Test
     public void testCropping2DLayer() {
+        int failCount = 0;
         Nd4j.getRandom().setSeed(12345);
         int nOut = 4;
 
@@ -1224,9 +1283,14 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     configureConvDumpAfter("testCropping2DLayer", testName, testNum, gradOK);
                     testNum++;
+
+                    if(!gradOK)
+                        failCount++;
                 }
             }
         }
+
+        assertEquals(0, failCount);
     }
 
 
@@ -1238,8 +1302,8 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
             File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
             testOutputDir.mkdirs();
 
-            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.allArraysVsIter = null;
-            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.layerCounterMap = null;
+            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.allArraysVsIter.clear();
+            org.deeplearning4j.nn.layers.convolution.ConvolutionLayer.layerCounterMap.clear();
 
             GradientCheckUtil.saveOnFailureMode = true;
             GradientCheckUtil.comparisonMode = false;
