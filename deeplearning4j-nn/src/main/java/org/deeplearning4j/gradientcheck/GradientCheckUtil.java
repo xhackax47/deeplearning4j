@@ -1,6 +1,7 @@
 package org.deeplearning4j.gradientcheck;
 
 import lombok.extern.slf4j.Slf4j;
+import org.deeplearning4j.nn.layers.convolution.ConvolutionLayer;
 import org.nd4j.linalg.lossfunctions.impl.LossBinaryXENT;
 import org.nd4j.linalg.primitives.Pair;
 import org.deeplearning4j.nn.api.Layer;
@@ -33,6 +34,7 @@ import org.nd4j.linalg.lossfunctions.ILossFunction;
 import org.nd4j.linalg.lossfunctions.impl.LossMCXENT;
 import org.nd4j.linalg.primitives.Pair;
 
+import java.io.*;
 import java.util.*;
 
 /** A utility for numerically checking gradients. <br>
@@ -52,6 +54,11 @@ import java.util.*;
  */
 @Slf4j
 public class GradientCheckUtil {
+
+    public static boolean saveOnFailureMode = true;
+    public static boolean comparisonMode = false;
+    public static File saveDir = null;
+    public static File failedTestDirComparison = null;
 
     private static final List<Class<? extends IActivation>> VALID_ACTIVATION_FUNCTIONS =
                     Arrays.asList(Activation.CUBE.getActivationFunction().getClass(),
@@ -286,9 +293,76 @@ public class GradientCheckUtil {
                         return false;
                     totalNFailures++;
                 }
+
+                //Failure occurred... save arrays
+                if(saveOnFailureMode){
+                    Nd4j.getExecutioner().commit();
+                    log.info("SAVING ON FAILURE");
+                    Map<Integer,Map<Integer,List<Pair<String,INDArray>>>> map = ConvolutionLayer.allArraysVsIter;
+
+                    for(Map.Entry<Integer,Map<Integer,List<Pair<String,INDArray>>>> e : map.entrySet()){
+
+                        int layerIdx = e.getKey();
+                        Map<Integer,List<Pair<String,INDArray>>> iters = e.getValue();
+
+                        for(Map.Entry<Integer, List<Pair<String,INDArray>>> arraysForLayerIter : iters.entrySet() ){
+                            int iter = arraysForLayerIter.getKey();
+                            File dir = new File(saveDir, "layer_" + layerIdx + "/" + iter + "/" );
+                            dir.mkdirs();
+                            for(Pair<String,INDArray> p : arraysForLayerIter.getValue()){
+                                File file = new File(dir, p.getKey() + ".bin");
+                                try(DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)))){
+                                    Nd4j.write(p.getSecond(), dos);
+                                } catch (IOException ex){
+                                    throw new RuntimeException(ex);
+                                }
+                            }
+                        }
+                    }
+                }
+
+
             } else if (print) {
                 log.info("Param " + i + " (" + paramName + ") passed: grad= " + backpropGradient + ", numericalGrad= "
                                 + numericalGradient + ", relError= " + relError);
+
+                if(comparisonMode){
+
+                    Map<Integer,Map<Integer,List<Pair<String,INDArray>>>> map = ConvolutionLayer.allArraysVsIter;
+
+                    for(Map.Entry<Integer,Map<Integer,List<Pair<String,INDArray>>>> e : map.entrySet()){
+
+                        int layerIdx = e.getKey();
+                        Map<Integer,List<Pair<String,INDArray>>> iters = e.getValue();
+
+                        for(Map.Entry<Integer, List<Pair<String,INDArray>>> arraysForLayerIter : iters.entrySet() ){
+                            int iter = arraysForLayerIter.getKey();
+                            File failureDir = new File(failedTestDirComparison, "layer_" + layerIdx + "/" + iter + "/" );
+
+                            if(failureDir.exists()){
+                                //Recorded failure for this iteration exists -> want to save
+
+                                log.info("*** RECORDING SUCCESSFUL VALUES FOR COMPARISON ***");
+
+                                File successDir = new File(saveDir, "layer_" + layerIdx + "/" + iter + "/" );
+                                successDir.mkdirs();
+
+                                for(Pair<String,INDArray> p : arraysForLayerIter.getValue()){
+                                    File file = new File(successDir, p.getKey() + ".bin");
+                                    try(DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)))){
+                                        Nd4j.write(p.getSecond(), dos);
+                                    } catch (IOException ex){
+                                        throw new RuntimeException(ex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for(Map.Entry<Integer,Map<Integer,List<Pair<String,INDArray>>>> e : ConvolutionLayer.allArraysVsIter.entrySet()){
+                e.getValue().clear();
             }
 
             int step;

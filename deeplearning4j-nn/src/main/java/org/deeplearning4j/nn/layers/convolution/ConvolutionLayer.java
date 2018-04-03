@@ -40,9 +40,9 @@ import org.nd4j.util.OneTimeLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -52,6 +52,13 @@ import java.util.Properties;
  */
 public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected static final Logger log = LoggerFactory.getLogger(ConvolutionLayer.class);
+
+    //For each layer index, each iteration
+    public static Map<Integer,AtomicInteger> layerCounterMap = new ConcurrentHashMap<>();
+    //Outer key: layer index
+    //Inner key: iteration number
+    //List: arrays at each iteration
+    public static Map<Integer,Map<Integer,List<Pair<String,INDArray>>>> allArraysVsIter = new ConcurrentHashMap<>();
 
     protected INDArray i2d;
     protected ConvolutionHelper helper = null;
@@ -288,8 +295,21 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
      * @return            Pair of arrays: preOutput (activations) and optionally the im2col2d array
      */
     protected Pair<INDArray, INDArray> preOutput(boolean training, boolean forBackprop) {
+        if(!layerCounterMap.containsKey(index)){
+            layerCounterMap.put(index, new AtomicInteger());
+            allArraysVsIter.put(index, new HashMap<Integer, List<Pair<String, INDArray>>>());
+        }
+
+
+
+        List<Pair<String,INDArray>> allArrays = new ArrayList<>();
+
         INDArray bias = getParamWithNoise(ConvolutionParamInitializer.BIAS_KEY, training);
         INDArray weights = getParamWithNoise(ConvolutionParamInitializer.WEIGHT_KEY, training);
+
+        allArrays.add(new Pair<>("input", input));
+        allArrays.add(new Pair<>("bias", bias));
+        allArrays.add(new Pair<>("weights", weights));
 
         //Input validation: expect rank 4 matrix
         if (input.rank() != 4) {
@@ -297,13 +317,13 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             if (layerName == null)
                 layerName = "(not named)";
             throw new DL4JInvalidInputException("Got rank " + input.rank()
-                            + " array as input to ConvolutionLayer (layer name = " + layerName + ", layer index = "
-                            + index + ") with shape " + Arrays.toString(input.shape()) + ". "
-                            + "Expected rank 4 array with shape [minibatchSize, layerInputDepth, inputHeight, inputWidth]."
-                            + (input.rank() == 2
-                                            ? " (Wrong input type (see InputType.convolutionalFlat()) or wrong data type?)"
-                                            : "")
-                            + " " + layerId());
+                    + " array as input to ConvolutionLayer (layer name = " + layerName + ", layer index = "
+                    + index + ") with shape " + Arrays.toString(input.shape()) + ". "
+                    + "Expected rank 4 array with shape [minibatchSize, layerInputDepth, inputHeight, inputWidth]."
+                    + (input.rank() == 2
+                    ? " (Wrong input type (see InputType.convolutionalFlat()) or wrong data type?)"
+                    : "")
+                    + " " + layerId());
         }
 
         int miniBatch = input.size(0);
@@ -315,10 +335,10 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             if (layerName == null)
                 layerName = "(not named)";
             throw new DL4JInvalidInputException("Cannot do forward pass in Convolution layer (layer name = " + layerName
-                            + ", layer index = " + index + "): input array depth does not match CNN layer configuration"
-                            + " (data input depth = " + input.size(1) + ", [minibatch,inputDepth,height,width]="
-                            + Arrays.toString(input.shape()) + "; expected" + " input depth = " + inDepth + ") "
-                            + layerId());
+                    + ", layer index = " + index + "): input array depth does not match CNN layer configuration"
+                    + " (data input depth = " + input.size(1) + ", [minibatch,inputDepth,height,width]="
+                    + Arrays.toString(input.shape()) + "; expected" + " input depth = " + inDepth + ") "
+                    + layerId());
         }
         int kH = weights.size(2);
         int kW = weights.size(3);
@@ -332,7 +352,7 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         if (convolutionMode == ConvolutionMode.Same) {
             outSize = ConvolutionUtils.getOutputSize(input, kernel, strides, null, convolutionMode, dilation); //Also performs validation
             pad = ConvolutionUtils.getSameModeTopLeftPadding(outSize, new int[] {input.size(2), input.size(3)}, kernel,
-                            strides, dilation );
+                    strides, dilation );
         } else {
             pad = layerConf().getPadding();
             outSize = ConvolutionUtils.getOutputSize(input, kernel, strides, pad, convolutionMode, dilation); //Also performs validation
@@ -385,7 +405,9 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         INDArray col = Nd4j.createUninitialized(new int[] {miniBatch, outH, outW, inDepth, kH, kW}, 'c');
         INDArray col2 = col.permute(0, 3, 4, 5, 1, 2);
         Convolution.im2col(input, kH, kW, strides[0], strides[1], pad[0], pad[1], dilation[0], dilation[1],
-                        convolutionMode == ConvolutionMode.Same, col2);
+                convolutionMode == ConvolutionMode.Same, col2);
+
+        allArrays.add(new Pair<>("col", col));
 
         INDArray im2col2d = Shape.newShapeNoCopy(col, new int[] {miniBatch * outH * outW, inDepth * kH * kW}, false);
 
@@ -398,10 +420,10 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
         //Do the MMUL; c and f orders in, f order out. output shape: [miniBatch*outH*outW,depthOut]
         INDArray z = null;
         if (Nd4j.getWorkspaceManager().checkIfWorkspaceExistsAndActive(ComputationGraph.WORKSPACE_EXTERNAL)
-                        && Nd4j.getMemoryManager().getCurrentWorkspace() != Nd4j.getWorkspaceManager()
-                                        .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_EXTERNAL)) {
+                && Nd4j.getMemoryManager().getCurrentWorkspace() != Nd4j.getWorkspaceManager()
+                .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_EXTERNAL)) {
             try (MemoryWorkspace wsB = Nd4j.getWorkspaceManager()
-                            .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_EXTERNAL).notifyScopeBorrowed()) {
+                    .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_EXTERNAL).notifyScopeBorrowed()) {
                 z = im2col2d.mmul(reshapedW);
             }
         } else
@@ -412,18 +434,25 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
             z.addiRowVector(bias);
         }
 
+        allArrays.add(new Pair<>("z", z));
+
         //Now, reshape to [outW,outH,miniBatch,outDepth], and permute to have correct output order: [miniBath,outDepth,outH,outW];
         z = Shape.newShapeNoCopy(z, new int[] {outW, outH, miniBatch, outDepth}, true);
         z = z.permute(2, 3, 1, 0);
 
         if (cacheMode != CacheMode.NONE
-                        && Nd4j.getWorkspaceManager().checkIfWorkspaceExistsAndActive(ComputationGraph.WORKSPACE_CACHE)) {
+                && Nd4j.getWorkspaceManager().checkIfWorkspaceExistsAndActive(ComputationGraph.WORKSPACE_CACHE)) {
 
             try (MemoryWorkspace wsB = Nd4j.getWorkspaceManager()
-                            .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_CACHE).notifyScopeBorrowed()) {
+                    .getWorkspaceForCurrentThread(ComputationGraph.WORKSPACE_CACHE).notifyScopeBorrowed()) {
                 i2d = im2col2d.unsafeDuplication();
             }
         }
+
+        //Save arrays for later
+        int currentIter = layerCounterMap.get(index).getAndIncrement();
+        Map<Integer, List<Pair<String, INDArray>>> map = allArraysVsIter.get(index);
+        map.put(currentIter, allArrays);
 
         return new Pair<>(z, forBackprop ? im2col2d : null);
     }
