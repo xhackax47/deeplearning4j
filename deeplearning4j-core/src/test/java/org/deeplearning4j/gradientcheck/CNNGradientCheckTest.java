@@ -58,6 +58,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
     @Test
     public void testGradientCNNMLN() {
+        Nd4j.getRandom().setSeed(12345);
         //Parameterized test, testing combinations of:
         // (a) activation function
         // (b) Whether to test at random initialization, or after some learning (i.e., 'characteristic mode of operation')
@@ -253,6 +254,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                 MultiLayerConfiguration conf =
                         new NeuralNetConfiguration.Builder()
+                                .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE)
                                 .updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
@@ -317,6 +319,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
+                                    .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE)
                                     .updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
@@ -384,6 +387,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
+                                    .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE)
                                     .updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
@@ -460,6 +464,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
+                                    .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE).updater(new NoOp())
                                     .weightInit(WeightInit.DISTRIBUTION)
@@ -545,8 +550,10 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
-                            .trainingWorkspaceMode(WorkspaceMode.NONE)
-                            .inferenceWorkspaceMode(WorkspaceMode.NONE).updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
+                                    .seed(12345)
+                                    .trainingWorkspaceMode(WorkspaceMode.NONE)
+                                    .inferenceWorkspaceMode(WorkspaceMode.NONE)
+                                    .updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
                                     .dist(new NormalDistribution(0, 1))
                                     .list().layer(0,
                                     new ConvolutionLayer.Builder(kernel,
@@ -858,6 +865,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
+                                    .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE).updater(new NoOp()).weightInit(WeightInit.DISTRIBUTION)
                                     .dist(new NormalDistribution(0, 1)).list()
@@ -1242,6 +1250,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
 
                     MultiLayerConfiguration conf =
                             new NeuralNetConfiguration.Builder()
+                                    .seed(12345)
                             .trainingWorkspaceMode(WorkspaceMode.NONE)
                             .inferenceWorkspaceMode(WorkspaceMode.NONE)
                                     .updater(new NoOp())
@@ -1295,11 +1304,9 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
     }
 
 
-//    public static File KNOWN_FAILURE = null;
-//    public static File baseOutputDir = new File("D:/DL4JDebugFailOnly");
-
     public static File KNOWN_FAILURE = new File("D:/DL4JDebugFailOnly");
-    public static final long KNOWN_FAILURE_TIMESTAMP = 1522730553880L;
+    public static final long KNOWN_FAILURE_TIMESTAMP = 1522741592508L;
+//    public static File baseOutputDir = new File("D:/DL4JDebugFailOnly");
     public static File baseOutputDir = new File("D:/DL4JDebugComparison");
 
     public static void configureConvDumpBefore(String testMethodName, String testCaseName, int testCaseNumber) {
@@ -1333,12 +1340,18 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
         if (System.getenv("DL4J_DUMP_CONV") != null) {
             File testOutputDir = new File(baseOutputDir, testMethodName + "/" + TEST_RUN_TIMESTAMP + "/" + testCaseNumber + "-" + testCaseName);
 
-            File f = new File(testOutputDir, successful ? "SUCCESS" : "FAIL");
-            try {
-                f.createNewFile();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+//            File f = new File(testOutputDir, successful ? "SUCCESS" : "FAIL");
+//            try {
+//                f.createNewFile();
+//            } catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+
+            if(successful){
+                //Delete empty test case dirs
+                testOutputDir.delete();
             }
+
         }
     }
 
@@ -1346,8 +1359,22 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
     @Test
     @Ignore
     public void analyzeDumps(){
-        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnMultiLayer\\1522730553880\\14-2-SIGMOID-MAX-5");
-        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnMultiLayer\\1522733759149\\14-2-SIGMOID-MAX-5");
+//        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnSamePaddingMode\\1522735184753\\32-4-3-5-2");
+//        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnSamePaddingMode\\1522736738177\\32-4-3-5-2");
+
+//        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnSamePaddingMode\\1522735184753\\34-4-3-6-2");
+//        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnSamePaddingMode\\1522736738177\\34-4-3-6-2");
+
+//        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnWithSubsampling\\1522735184753\\0-SIGMOID-MAX-1");
+//        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnWithSubsampling\\1522736738177\\0-SIGMOID-MAX-1");
+
+//        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnSamePaddingMode\\1522741592508\\6-1-3-4-2");
+//        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnSamePaddingMode\\1522743741702\\6-1-3-4-2");
+
+        File dir1 = new File("D:\\DL4JDebugFailOnly\\testCnnSamePaddingMode\\1522741592508\\30-4-3-4-2");
+        File dir2 = new File("D:\\DL4JDebugComparison\\testCnnSamePaddingMode\\1522743741702\\30-4-3-4-2");
+
+
 
         String d1 = dir1.getAbsolutePath();
         String d2 = dir2.getAbsolutePath();
@@ -1360,6 +1387,7 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
             }
         });
 
+        int count = 0;
         for(File f1 : f){
             String fullPath = f1.getAbsolutePath();
             if(!fullPath.startsWith(d1)){
@@ -1387,9 +1415,19 @@ public class CNNGradientCheckTest extends BaseDL4JTest {
                 NdIndexIterator iter = new NdIndexIterator(exp.shape());
                 while(iter.hasNext()){
                     int[] pos = iter.next();
-                    System.out.println(exp.getDouble(pos) + "\t" + actFailure.getDouble(pos));
+                    double dExp = exp.getDouble(pos);
+                    double dFail = actFailure.getDouble(pos);
+
+//                    System.out.println(Arrays.toString(pos) + "\t" + dExp + "\t" + dFail);
                 }
+            } else {
+                System.out.println("OK: (mean: " + expMean + " vs " + failMean + ") - " + f1);
             }
+
+//            count++;
+//            if(count > 5){
+//                break;
+//            }
         }
     }
 

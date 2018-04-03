@@ -59,6 +59,7 @@ public class ConvolutionLayer extends BaseLayer<org.deeplearning4j.nn.conf.layer
     //Inner key: iteration number
     //List: arrays at each iteration
     public static Map<Integer,Map<Integer,List<Pair<String,INDArray>>>> allArraysVsIter = new ConcurrentHashMap<>();
+    public static Map<Integer,Map<Integer,List<Pair<String,INDArray>>>> allArraysVsIterBwd = new ConcurrentHashMap<>();
 
     protected INDArray i2d;
     protected ConvolutionHelper helper = null;
